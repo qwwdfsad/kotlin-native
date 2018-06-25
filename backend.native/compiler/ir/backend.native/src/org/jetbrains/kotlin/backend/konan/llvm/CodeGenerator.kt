@@ -25,6 +25,8 @@ import org.jetbrains.kotlin.backend.konan.descriptors.stdlibModule
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.backend.konan.irasdescriptors.*
 import org.jetbrains.kotlin.backend.konan.llvm.objc.ObjCDataGenerator
+import org.jetbrains.kotlin.ir.util.constructors
+import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.konan.target.KonanTarget
 
 internal class CodeGenerator(override val context: Context) : ContextUtils {
@@ -96,7 +98,8 @@ internal class CodeGenerator(override val context: Context) : ContextUtils {
     }
 
     val objCDataGenerator = when (context.config.target) {
-        KonanTarget.IOS_ARM64, KonanTarget.IOS_X64, KonanTarget.MACOS_X64 -> ObjCDataGenerator(this)
+        KonanTarget.IOS_ARM32, KonanTarget.IOS_ARM64,
+        KonanTarget.IOS_X64, KonanTarget.MACOS_X64 -> ObjCDataGenerator(this)
         else -> null
     }
 
@@ -708,7 +711,7 @@ internal class FunctionGenerationContext(val function: LLVMValueRef,
      */
     fun getEnumEntry(descriptor: IrEnumEntry, exceptionHandler: ExceptionHandler): LLVMValueRef {
         val enumClassDescriptor = descriptor.containingDeclaration as ClassDescriptor
-        val loweredEnum = context.specialDeclarationsFactory.getLoweredEnum(enumClassDescriptor.descriptor)
+        val loweredEnum = context.specialDeclarationsFactory.getLoweredEnum(enumClassDescriptor)
 
         val ordinal = loweredEnum.entriesMap[descriptor.name]!!
         val values = call(

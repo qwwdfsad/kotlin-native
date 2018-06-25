@@ -19,18 +19,17 @@ package org.jetbrains.kotlin.backend.konan.llvm.objcexport
 import llvm.*
 import org.jetbrains.kotlin.backend.konan.descriptors.CurrentKonanModule
 import org.jetbrains.kotlin.backend.konan.llvm.*
-import org.jetbrains.kotlin.descriptors.FunctionDescriptor
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
-internal fun ObjCExportCodeGenerator.generateKotlinFunctionImpl(invokeMethod: FunctionDescriptor): ConstPointer {
+internal fun ObjCExportCodeGenerator.generateKotlinFunctionImpl(invokeMethod: IrSimpleFunction): ConstPointer {
     // TODO: consider also overriding methods of `Any`.
 
     val numberOfParameters = invokeMethod.valueParameters.size
 
     val function = generateFunction(
             codegen,
-            codegen.getLlvmFunctionType(context.ir.get(invokeMethod)),
+            codegen.getLlvmFunctionType(invokeMethod),
             "invokeFunction$numberOfParameters"
     ) {
         val args = (0 until numberOfParameters).map { index -> kotlinReferenceToObjC(param(index + 1)) }
@@ -100,6 +99,9 @@ internal class BlockAdapterToFunctionGenerator(val objCExportCodeGenerator: ObjC
         LLVMSetLinkage(it, LLVMLinkage.LLVMInternalLinkage)
     }
 
+    fun org.jetbrains.kotlin.backend.konan.Context.LongInt(value: Long) =
+            if (is64Bit()) Int64(value) else Int32(value.toInt())
+
     private fun generateDescriptorForBlockAdapterToFunction(numberOfParameters: Int): ConstValue {
         val signature = buildString {
             append('@')
@@ -116,17 +118,17 @@ internal class BlockAdapterToFunctionGenerator(val objCExportCodeGenerator: ObjC
             }
         }
 
-        assert(codegen.context.is64Bit())
-
         return Struct(blockDescriptorType,
-                Int64(0),
-                Int64(LLVMStoreSizeOfType(codegen.runtime.targetData, blockLiteralType)),
+                codegen.context.LongInt(0L),
+                codegen.context.LongInt(LLVMStoreSizeOfType(codegen.runtime.targetData, blockLiteralType)),
                 constPointer(copyHelper),
                 constPointer(disposeHelper),
                 codegen.staticData.cStringLiteral(signature),
                 NullPointer(int8Type)
         )
     }
+
+
 
     private fun FunctionGenerationContext.storeRefUnsafe(value: LLVMValueRef, slot: LLVMValueRef) {
         assert(value.type == kObjHeaderPtr)
